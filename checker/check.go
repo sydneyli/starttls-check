@@ -30,6 +30,7 @@ type CheckResult struct {
 	Name     string      `json:"name"`
 	Status   CheckStatus `json:"status"`
 	Messages []string    `json:"messages,omitempty"`
+	Data     interface{} `json:"data"`
 }
 
 // Ensures the Messages field is initialized.

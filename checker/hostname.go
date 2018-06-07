@@ -133,6 +133,14 @@ func checkStartTLS(h HostnameResult) CheckResult {
 	return result.Success()
 }
 
+type CertData struct {
+	CommonName string    `json:"common_name"`
+	AltNames   []string  `json:"alternative_names"`
+	ValidFrom  time.Time `json:"valid_from"`
+	ValidUntil time.Time `json:"valid_until"`
+	Issuer     string    `json:"issuer_name"`
+}
+
 // Retrieves valid names from certificate. If the certificate has
 // SAN, retrieves all SAN domains; otherwise returns a list containing only the CN.
 func getNamesFromCert(cert *x509.Certificate) []string {
@@ -167,10 +175,24 @@ func verifyCertChain(state tls.ConnectionState) error {
 	return err
 }
 
+func getDataFromCert(cert *x509.Certificate) CertData {
+	data := CertData{
+		CommonName: cert.Subject.CommonName,
+		AltNames:   []string{},
+		ValidFrom:  cert.NotBefore,
+		ValidUntil: cert.NotAfter,
+		Issuer:     cert.Issuer.CommonName,
+	}
+	if cert.DNSNames != nil && len(cert.DNSNames) > 0 {
+		data.AltNames = cert.DNSNames
+	}
+	return data
+}
+
 // Checks that the certificate presented is valid for a particular hostname, unexpired,
 // and chains to a trusted root.
 func checkCert(h HostnameResult) CheckResult {
-	result := CheckResult{Name: "certificate"}
+	result := CheckResult{Name: "certificate", Data: CertData{}}
 	client, err := smtpDialWithTimeout(h.Hostname)
 	if err != nil {
 		return result.Error("Could not establish connection with hostname %s", h.Hostname)
@@ -189,6 +211,7 @@ func checkCert(h HostnameResult) CheckResult {
 	if h.MxHostnames == nil || len(h.MxHostnames) == 0 {
 		h.MxHostnames = h.defaultValidNames()
 	}
+	result.Data = getDataFromCert(cert)
 	if !hasValidName(getNamesFromCert(cert), h.MxHostnames) {
 		result = result.Failure("Name in cert doesn't match any MX hostnames.")
 	}
@@ -255,8 +278,6 @@ func checkTLSVersion(h HostnameResult) CheckResult {
 	result := CheckResult{Name: "version"}
 	versions := map[uint16]bool{
 		tls.VersionSSL30: false,
-		tls.VersionTLS10: true,
-		tls.VersionTLS11: true,
 		tls.VersionTLS12: true,
 	}
 	for version, shouldWork := range versions {
@@ -313,9 +334,10 @@ func CheckHostname(domain string, hostname string, mxHostnames []string) Hostnam
 	// 2. Perform remainder of checks in parallel.
 	results := make(chan CheckResult)
 	go func() { results <- checkCert(result) }()
-	go func() { results <- checkTLSCipher(result) }()
+	// TODO: re-enable this check!
+	// go func() { results <- checkTLSCipher(result) }()
 	go func() { results <- checkTLSVersion(result) }()
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 2; i++ {
 		checkResult := <-results
 		result.updateStatus(checkResult.Status)
 		result.Checks[checkResult.Name] = checkResult
