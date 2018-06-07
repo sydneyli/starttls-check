@@ -133,6 +133,8 @@ func checkStartTLS(h HostnameResult) CheckResult {
 	return result.Success()
 }
 
+// CertData condensely packages information about the TLS certificate supplied
+// during the connection.
 type CertData struct {
 	CommonName string    `json:"common_name"`
 	AltNames   []string  `json:"alternative_names"`
@@ -334,7 +336,8 @@ func CheckHostname(domain string, hostname string, mxHostnames []string) Hostnam
 	// 2. Perform remainder of checks in parallel.
 	results := make(chan CheckResult)
 	go func() { results <- checkCert(result) }()
-	// TODO: re-enable this check!
+	// TODO: re-enable this check once we have a more comprehensive and
+	// informative set of recommendations.
 	// go func() { results <- checkTLSCipher(result) }()
 	go func() { results <- checkTLSVersion(result) }()
 	for i := 0; i < 2; i++ {
