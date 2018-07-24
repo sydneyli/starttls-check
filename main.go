@@ -47,7 +47,12 @@ func main() {
 		flag.PrintDefaults()
 	}
 	domainStr := flag.String("domain", "", "Required: Domain to check TLS for.")
+	csvFilename := flag.String("csv", "", "csv filename containign list of domains")
 	flag.Parse()
+	if *csvFilename != "" {
+		manualValidation(*csvFilename)
+		os.Exit(0)
+	}
 	if *domainStr == "" {
 		flag.PrintDefaults()
 		os.Exit(1)
