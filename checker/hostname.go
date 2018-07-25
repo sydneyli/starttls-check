@@ -263,7 +263,7 @@ func checkTLSVersion(h HostnameResult) CheckResult {
 	for version, shouldWork := range versions {
 		client, err := smtpDialWithTimeout(h.Hostname)
 		if err != nil {
-			return result.Error("Could not establish connection with hostname %s")
+			return result.Error("Could not establish connection with hostname %s", h.Hostname)
 		}
 		defer client.Close()
 		config := tlsConfigForVersion(version)
